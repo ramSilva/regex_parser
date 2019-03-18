@@ -13,7 +13,7 @@ defaultExclude = [
     "drawable"]
 
 parser = argparse.ArgumentParser(
-    description="Find repeated definitions for a given regex and tags them per file.",
+    description="Find repeated definitions for a given regex and tag them per file.",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
     "dir",
@@ -79,7 +79,7 @@ def search(regex):
                             matches[match.upper()].append(filePath)
                             filesList[filePath].append(match.upper())
                             n += 1
-                        theFile.close()
+                    theFile.close()
     return filesList, matches, n
 
 compiledRegex = re.compile(regex)
