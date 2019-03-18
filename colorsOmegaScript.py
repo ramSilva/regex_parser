@@ -1,9 +1,9 @@
+import sys
 import os
 import re
+import argparse
 
-dir_path = os.path.dirname(os.path.realpath(__file__)) 
-
-ignore = [
+defaultExclude = [
     "node_modules",
     "bower_components",
     "build/",
@@ -13,47 +13,87 @@ ignore = [
     "tests",
     "drawable"]
 
+parser = argparse.ArgumentParser(
+    description="Find repeated definitions for a given regex and tags them per file.",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument(
+    "dir",
+    help="Directory to search.")
+parser.add_argument(
+    "include",
+    help="File types to include",
+    nargs="+",
+    type=str)
+parser.add_argument(
+    "-e", "--exclude",
+    help="List of paths/files to exclude.",
+    metavar="Exclude",
+    dest="exclude",
+    type=str,
+    default=[],
+    nargs="*")
+parser.add_argument(
+    "-d", "--default_exclude",
+    help="Use default exclude values for file paths and names. Can be used in conjunction with -e",
+    action="store_true")
+parser.add_argument(
+    "-r", "--regex",
+    help="Regex to search for. Defaults to hexadecimal color search",
+    metavar="regex",
+    dest="regex",
+    type=str,
+    default="#[a-fA-F0-9]{6,8}",)
+
+args = parser.parse_args()
+dir_path = args.dir
+
+exclude = args.exclude
+if args.default_exclude:
+    exclude.extend(defaultExclude)
+
+include = args.include
+regex = args.regex
+
 def singularPluralString(n, string):
     retValue = str(n) + " " + string
     if n != 1:
         retValue += "s"
     return retValue
 
-def doStuff(regex):
-    matches = 0
+def search(regex):
     filesList = {}
-    colors = {}
+    matches = {}
+    n = 0
     for root, dirs, files in os.walk(dir_path): 
-        if not any(ext in root for ext in ignore):
+        if not any(ext in root for ext in exclude):
             for file in files:
-                if not any(ext in file for ext in ignore) and (file.endswith('.js')):
+                if (not any(ext in file for ext in exclude)) and any(file.endswith(ext) for ext in include):
                     filePath = root + "/" + file
                     theFile = open(filePath)
-                    theActualActualFile = theFile.read()
-                    f = colorRe.findall(theActualActualFile)
+                    fileContent = theFile.read()
+                    f = regex.findall(fileContent)
                     if len(f) > 0:
                         filesList[filePath] = []
                         for match in f:
-                            if match.upper() not in colors:
-                                colors[match.upper()] = []
-                            colors[match.upper()].append(filePath)
+                            if match.upper() not in matches:
+                                matches[match.upper()] = []
+                            matches[match.upper()].append(filePath)
                             filesList[filePath].append(match.upper())
-                            matches += 1
-                            
+                            n += 1
                         theFile.close()
-    return matches, filesList, colors
+    return filesList, matches, n
 
-colorRe = re.compile("#[a-f0-9]{6,8}", re.I)
+compiledRegex = re.compile(regex)
 
-matches, filesList, colors = doStuff(colorRe)
-print(str(matches) + " matches")
+filesList, matches, n = search(compiledRegex)
+print(str(n) + " matches")
 print("in " + str(len(filesList)) + " files")
-print("\nUnique colors: " + str(len(colors)))
+print("\nUnique matches: " + str(len(matches)))
 
-for color in colors:
-    filesForColor = colors[color]
-    uniqueFilesForColor = set(filesForColor)
-    print("\n" + color + " defined " + singularPluralString(len(filesForColor), "time") + " in " + singularPluralString(len(uniqueFilesForColor), "file"))
-    for file in uniqueFilesForColor:
-        n = filesForColor.count(file)
+for match in matches:
+    filesForMatch = matches[match]
+    uniqueFilesForMatch = set(filesForMatch)
+    print("\n" + match + " defined " + singularPluralString(len(filesForMatch), "time") + " in " + singularPluralString(len(uniqueFilesForMatch), "file"))
+    for file in uniqueFilesForMatch:
+        n = filesForMatch.count(file)
         print(" " + singularPluralString(n, "time") + " in " + file)
